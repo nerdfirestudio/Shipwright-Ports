@@ -1,0 +1,40 @@
+# Codemagic build for the touch-friendly iPhone menus (GitHub's Mac runners refused this
+# new account). Same steps as .github/workflows/iphone-menus.yml, all on one Mac.
+workflows:
+  ios-touch-menus:
+    name: iPhone menu build
+    instance_type: mac_mini_m2
+    max_build_duration: 120
+    environment:
+      xcode: latest
+      vars:
+        SOH_IOS_VERSION: 9.3.1
+        # Higher than the published build (20) so it installs over it and keeps saves.
+        SOH_IOS_BUILD_NUMBER: "21"
+        SOH_IOS_DISPLAY_NAME: Ship of Harkinian
+        SOH_ENABLE_ICLOUD: "OFF"
+        DEPLOYMENT_TARGET: "15.0"
+        CMAKE_BUILD_PARALLEL_LEVEL: "4"
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: iphone-menus
+          include: true
+          source: true
+    scripts:
+      - name: Submodules
+        script: git submodule update --init --recursive
+      - name: Build tools
+        script: brew install cmake ninja pkg-config libzip libpng
+      - name: Generate ROM-free support archive (soh.o2r)
+        script: |
+          cmake -S . -B build-host-tools -G Ninja -DSOH_TOOLS_ONLY=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-host-tools --target GenerateSohOtr --parallel 4
+          cp build-host-tools/soh/soh.o2r soh/soh.o2r
+      - name: Build iPhone app
+        script: scripts/build-ios.sh --device
+      - name: Package unsigned IPA
+        script: scripts/package-ios-unsigned.sh 'build-ios-device/soh/Release-iphoneos/Ship of Harkinian.app' 'dist/Ship-of-Harkinian-9.3.1-iOS-touch-menus-unsigned.ipa'
+    artifacts:
+      - dist/*.ipa
