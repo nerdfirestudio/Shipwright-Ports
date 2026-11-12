@@ -6,7 +6,8 @@ workflows:
     instance_type: mac_mini_m2
     max_build_duration: 120
     environment:
-      xcode: latest
+      # Pinned: the published IPA was built with Xcode 16.4 (iOS 18.5 SDK); Xcode 26 breaks the CoreAudio headers.
+      xcode: 16.4
       vars:
         SOH_IOS_VERSION: 9.3.1
         # Higher than the published build (20) so it installs over it and keeps saves.
