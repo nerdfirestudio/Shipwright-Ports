@@ -192,7 +192,9 @@ UIFont* TouchFont(CGFloat size) {
     for(auto& c:_layout.controls) {
         if(c.key=="pad")continue;
         bool visible=_placement.visible(c.key),down=[self pressed:c.key];
-        if(!_editing&&(!visible||(((_state&1)||_menuVisible)&&c.key!="settings"&&c.key!="eye")))continue;
+        // The eye only shows or hides the game controls, so it is hidden while the menu is open: it was
+        // floating over the settings and swallowing taps there.
+        if(!_editing&&(!visible||(((_state&1)||_menuVisible)&&c.key!="settings"&&c.key!="eye")||(_menuVisible&&c.key=="eye")))continue;
         if(!_editing&&_config.style==1&&c.stick==1)continue;
         if(!_editing&&c.stick>=0&&[self floating:c]&&!down)continue;
         bool content=!_editing&&c.slot>=0&&(_state&(1<<(8+c.slot)));
@@ -259,7 +261,7 @@ UIFont* TouchFont(CGFloat size) {
     if(_editing)return self;
     if(_suspended||self.hidden)return nil;
     for(auto& c:_layout.controls) if(c.key!="pad"&&_placement.visible(c.key)&&c.stick<0&&c.bounds.contains(point.x,point.y)&&
-        ((!(_state&1)&&!_menuVisible)||c.key=="settings"||c.key=="eye"))return self;
+        ((!(_state&1)&&!_menuVisible)||c.key=="settings"||(c.key=="eye"&&!_menuVisible)))return self;
     if(!(_state&1)&&!_menuVisible)for(auto& c:_layout.controls)if(c.stick>=0&&_placement.visible(c.key)&&
         ([self floating:c]?(c.stick==0?point.x<self.bounds.size.width/2:point.x>=self.bounds.size.width/2):c.bounds.contains(point.x,point.y)))return self;
     return nil;
@@ -293,7 +295,7 @@ UIFont* TouchFont(CGFloat size) {
         if(_editing){[self editorBegan:touch];continue;}
         CGPoint p=[touch locationInView:self];TouchHud::Control* chosen=nullptr;
         for(auto& c:_layout.controls)if(c.key!="pad"&&c.stick<0&&_placement.visible(c.key)&&![self pressed:c.key]&&c.bounds.contains(p.x,p.y)&&
-            ((!(_state&1)&&!_menuVisible)||c.key=="settings"||c.key=="eye")){chosen=&c;break;}
+            ((!(_state&1)&&!_menuVisible)||c.key=="settings"||(c.key=="eye"&&!_menuVisible))){chosen=&c;break;}
         if(!chosen&&!(_state&1)&&!_menuVisible)for(int pass=0;pass<2&&!chosen;pass++)for(auto& c:_layout.controls)
             if(c.stick>=0&&_placement.visible(c.key)&&![self pressed:c.key]&&([self floating:c]==(pass==1))&&
                 (pass?(c.stick==0?p.x<self.bounds.size.width/2:p.x>=self.bounds.size.width/2):c.bounds.contains(p.x,p.y))){chosen=&c;break;}

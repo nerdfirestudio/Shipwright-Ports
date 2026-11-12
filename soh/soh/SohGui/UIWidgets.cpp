@@ -359,13 +359,31 @@ bool Checkbox(const char* _label, bool* value, const CheckboxOptions& options) {
     }
     const ImRect check_bb(checkPos, checkPos + ImVec2(square_sz, square_sz));
     ImGui::RenderNavHighlight(total_bb, id);
+    bool mixed_value = (g.LastItemData.ItemFlags & ImGuiItemFlags_MixedValue) != 0;
+#if defined(__IOS__) && !defined(__TVOS__)
+    // On a phone an unchecked box was a solid colored square that looked the same as a checked one.
+    // Off is now an outlined empty box; on is the filled box with a bright check.
+    if (!*value && !mixed_value) {
+        const ImVec4 accent = ImGui::GetStyleColorVec4(ImGuiCol_FrameBg);
+        window->DrawList->AddRectFilled(check_bb.Min, check_bb.Max,
+                                        ImGui::GetColorU32(ImVec4(0.0f, 0.0f, 0.0f, (held && hovered) ? 0.6f : 0.35f)),
+                                        style.FrameRounding);
+        window->DrawList->AddRect(check_bb.Min, check_bb.Max, ImGui::GetColorU32(ImVec4(accent.x, accent.y, accent.z, 1.0f)),
+                                  style.FrameRounding, 0, ImMax(2.0f, IM_TRUNC(square_sz / 12.0f)));
+    } else {
+        ImGui::RenderFrame(check_bb.Min, check_bb.Max,
+                           ImGui::GetColorU32((held && hovered) ? ImGuiCol_FrameBgActive : ImGuiCol_FrameBg), true,
+                           style.FrameRounding);
+    }
+    ImU32 check_col = ImGui::GetColorU32(ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+#else
     ImGui::RenderFrame(check_bb.Min, check_bb.Max,
                        ImGui::GetColorU32((held && hovered) ? ImGuiCol_FrameBgActive
                                           : hovered         ? ImGuiCol_FrameBgHovered
                                                             : ImGuiCol_FrameBg),
                        true, style.FrameRounding);
     ImU32 check_col = ImGui::GetColorU32(ImGuiCol_CheckMark);
-    bool mixed_value = (g.LastItemData.ItemFlags & ImGuiItemFlags_MixedValue) != 0;
+#endif
     if (mixed_value) {
         // Undocumented tristate/mixed/indeterminate checkbox (#2644)
         // This may seem awkwardly designed because the aim is to make ImGuiItemFlags_MixedValue supported by all

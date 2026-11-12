@@ -169,6 +169,11 @@ bool ModernMenuSidebarEntry(std::string label) {
     pos.y += style.FramePadding.y;
     pos.x = window->WorkRect.GetCenter().x - labelSize.x / 2;
     ImRect bb = { pos - style.FramePadding, pos + labelSize + style.FramePadding };
+#if defined(__IOS__) && !defined(__TVOS__)
+    // On a phone the whole row is the target, not just the word.
+    bb.Min.x = window->WorkRect.Min.x;
+    bb.Max.x = window->WorkRect.Max.x;
+#endif
     ImGui::ItemSize(bb, style.FramePadding.y);
     ImGui::ItemAdd(bb, sidebarId);
     bool hovered, held;
@@ -176,7 +181,7 @@ bool ModernMenuSidebarEntry(std::string label) {
     if (pressed) {
         ImGui::MarkItemEdited(sidebarId);
     }
-    window->DrawList->AddRectFilled(pos - style.FramePadding, pos + labelSize + style.FramePadding,
+    window->DrawList->AddRectFilled(bb.Min, bb.Max,
                                     ImGui::GetColorU32((held && hovered) ? ImGuiCol_ButtonActive
                                                        : hovered         ? ImGuiCol_ButtonHovered
                                                                          : ImGuiCol_Button),
@@ -761,19 +766,32 @@ void Menu::DrawElement() {
     float headerHeight = headerSizes.at(0).y + style.FramePadding.y * 2;
     ImVec2 buttonSize = ImGui::CalcTextSize(ICON_FA_TIMES_CIRCLE) + style.FramePadding * 2;
     bool scrollbar = false;
+    // Room kept between the tabs and the red Quit/Reset buttons so a near miss never lands on them.
+    float headerButtonGap = 0.0f;
+#if defined(__IOS__) && !defined(__TVOS__)
+    headerButtonGap = ImGui::GetFontSize();
+    ImGuiWindowFlags headerScrollFlags = ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoScrollbar;
+#else
+    ImGuiWindowFlags headerScrollFlags = ImGuiWindowFlags_HorizontalScrollbar;
     if (headerWidth > menuSize.x - buttonSize.x * 3 - style.ItemSpacing.x * 3) {
         headerHeight += style.ScrollbarSize;
         scrollbar = true;
     }
+#endif
+    ImVec2 headerSelSize = { menuSize.x - buttonSize.x * 3 - style.ItemSpacing.x * 3 - headerButtonGap, headerHeight };
+#if defined(__IOS__) && !defined(__TVOS__)
+    // The strip sizes itself to its tabs; cap it so it always stops before the gap and the red buttons.
+    ImGui::SetNextWindowSizeConstraints({ 0, headerHeight }, { ImMin(headerWidth, headerSelSize.x), headerHeight });
+#else
     ImGui::SetNextWindowSizeConstraints({ 0, headerHeight }, { headerWidth, headerHeight });
-    ImVec2 headerSelSize = { menuSize.x - buttonSize.x * 3 - style.ItemSpacing.x * 3, headerHeight };
+#endif
     if (scrollbar) {
         headerSelSize.y += style.ScrollbarSize;
     }
     bool autoFocus = CVarGetInteger(CVAR_SETTING("Menu.SearchAutofocus"), 0);
     ImGui::BeginChild("Header Selection", headerSelSize,
                       ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_AlwaysAutoResize,
-                      ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_HorizontalScrollbar);
+                      ImGuiWindowFlags_NoTitleBar | headerScrollFlags);
     uint8_t curIndex = 0;
     for (auto& label : menuOrder) {
         if (curIndex != 0) {
@@ -785,7 +803,8 @@ void Menu::DrawElement() {
         if (headerIndex != label) {
             ImGui::PushStyleColor(ImGuiCol_Button, { 0, 0, 0, 0 });
         }
-        if (ModernMenuHeaderEntry(entry.label)) {
+        bool headerPressed = ModernMenuHeaderEntry(entry.label);
+        if (headerPressed) {
             if (headerSearch) {
                 menuSearch.Clear();
             }
@@ -793,6 +812,12 @@ void Menu::DrawElement() {
             CVarSave();
             nextIndex = label;
         }
+#if defined(__IOS__) && !defined(__TVOS__)
+        // Bring the current tab into view when the menu opens or a tab is chosen.
+        if ((headerIndex == label && freshOpen) || headerPressed) {
+            ImGui::SetScrollHereX(0.5f);
+        }
+#endif
         if (headerIndex != label) {
             ImGui::PopStyleColor();
         }
@@ -828,6 +853,25 @@ void Menu::DrawElement() {
         ImGui::PopStyleVar();
         ImGui::PopStyleColor();
     }
+#if defined(__IOS__) && !defined(__TVOS__)
+    {
+        // The tab strip slides sideways. Fade the edge where more tabs are hidden, so it reads as "there's more".
+        ImGuiWindow* strip = ImGui::GetCurrentWindow();
+        const ImRect r = strip->InnerRect;
+        const float fade = ImGui::GetFontSize() * 2.5f;
+        const ImU32 solid = ImGui::GetColorU32(ImVec4(0, 0, 0, 0.9f));
+        const ImU32 clear = ImGui::GetColorU32(ImVec4(0, 0, 0, 0.0f));
+        ImDrawList* dl = strip->DrawList;
+        dl->PushClipRect(r.Min, r.Max);
+        if (ImGui::GetScrollX() < ImGui::GetScrollMaxX() - 1.0f) {
+            dl->AddRectFilledMultiColor({ r.Max.x - fade, r.Min.y }, r.Max, clear, solid, solid, clear);
+        }
+        if (ImGui::GetScrollX() > 1.0f) {
+            dl->AddRectFilledMultiColor(r.Min, { r.Min.x + fade, r.Max.y }, solid, clear, clear, solid);
+        }
+        dl->PopClipRect();
+    }
+#endif
     ImGui::EndChild();
 #ifdef __TVOS__
     if (tvosNavigationRegion == TvosMenuNavigationRegion::Header) {
@@ -869,9 +913,21 @@ void Menu::DrawElement() {
 #endif
         ;
     if (UIWidgets::Button(ICON_FA_UNDO, options2)) {
+#if defined(__IOS__) && !defined(__TVOS__)
+        // Reset sits next to the tabs; on a touch screen a slip should not throw away progress.
+        SohGui::mModalWindow->RegisterPopup(
+            "Reset", "Reset the game? Anything not saved will be lost.", "Reset", "Cancel",
+            []() {
+                std::reinterpret_pointer_cast<Ship::ConsoleWindow>(
+                    Ship::Context::GetRawInstance()->GetWindow()->GetGui()->GetGuiWindow("Console"))
+                    ->Dispatch("reset");
+            },
+            nullptr);
+#else
         std::reinterpret_pointer_cast<Ship::ConsoleWindow>(
             Ship::Context::GetRawInstance()->GetWindow()->GetGui()->GetGuiWindow("Console"))
             ->Dispatch("reset");
+#endif
     }
     ImGui::SameLine();
     UIWidgets::ButtonOptions options = {};
@@ -996,6 +1052,14 @@ void Menu::DrawElement() {
     if (windowWidth < 800) {
         columns = 1;
     }
+#if defined(__IOS__) && !defined(__TVOS__)
+    // A phone in landscape is wider than 800 points, which kept three columns of about
+    // 200 points each, every one cut off at the bottom. Below a readable column width,
+    // show one scrolling column instead (an iPad keeps its columns).
+    if (columns > 1 && (sectionWidth / columns) < ImGui::GetFontSize() * 18.0f) {
+        columns = 1;
+    }
+#endif
     float columnWidth = (sectionWidth - style.ItemSpacing.x * columns) / columns;
     bool useColumns = columns > 1;
     if (!useColumns || (headerSearch && menuSearchText.length() > 0)) {

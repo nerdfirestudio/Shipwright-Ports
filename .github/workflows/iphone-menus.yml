@@ -1,0 +1,69 @@
+name: iPhone menu build
+
+# Builds only the iPhone/iPad IPA for the touch-friendly menu changes.
+# Same steps as ports-release.yml's Apple job, without Android or tvOS.
+
+on:
+  push:
+    branches: [iphone-menus]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: iphone-menus-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  support-archive:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Install host dependencies
+        run: sudo apt-get update && sudo apt-get install -y ninja-build libzip-dev libpng-dev zlib1g-dev
+      - name: Generate ROM-free support archive
+        run: |
+          cmake -S . -B build-host-tools -G Ninja -DSOH_TOOLS_ONLY=ON -DCMAKE_BUILD_TYPE=Release
+          cmake --build build-host-tools --target GenerateSohOtr --parallel 4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Apple-Support-Archive
+          path: build-host-tools/soh/soh.o2r
+          if-no-files-found: error
+          retention-days: 3
+
+  ios:
+    needs: support-archive
+    runs-on: macos-15
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/download-artifact@v4
+        with:
+          name: Apple-Support-Archive
+          path: soh
+      - name: Install build tools
+        run: brew install cmake ninja pkg-config
+      - name: Build release app
+        env:
+          SOH_IOS_VERSION: 9.3.1
+          # Higher than the published build (20) so it installs over it and keeps saves.
+          SOH_IOS_BUILD_NUMBER: '21'
+          SOH_IOS_DISPLAY_NAME: Ship of Harkinian
+          SOH_ENABLE_ICLOUD: 'OFF'
+          DEPLOYMENT_TARGET: '15.0'
+          CMAKE_BUILD_PARALLEL_LEVEL: '4'
+        run: scripts/build-ios.sh --device
+      - name: Package unsigned IPA
+        run: scripts/package-ios-unsigned.sh 'build-ios-device/soh/Release-iphoneos/Ship of Harkinian.app' 'dist/Ship-of-Harkinian-9.3.1-iOS-touch-menus-unsigned.ipa'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SOH-9.3.1-iOS-touch-menus
+          path: dist/*.ipa
+          if-no-files-found: error
+          retention-days: 30
