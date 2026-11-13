@@ -26,13 +26,17 @@ workflows:
     scripts:
       - name: Submodules
         script: git submodule update --init --recursive
+      # Same tools as the author's own iOS job. Installing Homebrew's libzip/libpng here made the
+      # iPhone link pick up the Mac zlib/bzip2 (build #2 failed at the final link).
       - name: Build tools
-        script: brew install cmake ninja pkg-config libzip libpng
-      - name: Generate ROM-free support archive (soh.o2r)
+        script: brew install cmake ninja pkg-config
+      # The ROM-free support archive is taken from the published 9.3.1 IPA (same source tree),
+      # so no host libraries are needed on this machine.
+      - name: Get ROM-free support archive (soh.o2r)
         script: |
-          cmake -S . -B build-host-tools -G Ninja -DSOH_TOOLS_ONLY=ON -DCMAKE_BUILD_TYPE=Release
-          cmake --build build-host-tools --target GenerateSohOtr --parallel 4
-          cp build-host-tools/soh/soh.o2r soh/soh.o2r
+          curl -fsSL -o /tmp/soh-release.ipa https://github.com/linkzenic/Shipwright-Ports/releases/download/v9.3.1-ports.2/Ship-of-Harkinian-9.3.1-iOS-unsigned.ipa
+          unzip -p /tmp/soh-release.ipa 'Payload/Ship of Harkinian.app/soh.o2r' > soh/soh.o2r
+          ls -la soh/soh.o2r
       - name: Build iPhone app
         script: scripts/build-ios.sh --device
       - name: Package unsigned IPA
