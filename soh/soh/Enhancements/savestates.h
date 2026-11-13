@@ -26,6 +26,12 @@ enum class RequestType {
     LOAD,
 };
 
+// What a filled slot shows in the menu: where and when it was saved.
+struct SaveStateSlotInfo {
+    int32_t scene;
+    int64_t savedAt;
+};
+
 typedef struct SaveStateRequest {
     unsigned int slot;
     RequestType type;
@@ -39,6 +45,7 @@ class SaveStateMgr {
   private:
     unsigned int currentSlot;
     std::unordered_map<unsigned int, std::shared_ptr<SaveState>> states;
+    std::unordered_map<unsigned int, SaveStateSlotInfo> slotInfo;
     std::queue<SaveStateRequest> requests;
     std::mutex mutex;
 
@@ -49,6 +56,7 @@ class SaveStateMgr {
 
     void SetCurrentSlot(unsigned int slot);
     unsigned int GetCurrentSlot(void);
+    const SaveStateSlotInfo* GetInfo(unsigned int slot) const;
 
     SaveStateMgr& operator=(const SaveStateMgr& rhs) = delete;
     SaveStateMgr(const SaveStateMgr& rhs) = delete;

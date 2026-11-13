@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <memory>
+#include <ctime>
 
 #include <spdlog/spdlog.h>
 #include <ship/Context.h>
@@ -357,12 +358,17 @@ extern "C" void ProcessSaveStateRequests(void) {
 
 void SaveStateMgr::SetCurrentSlot(unsigned int slot) {
     Ship::Context::GetRawInstance()->GetWindow()->GetGui()->GetGameOverlay()->TextDrawNotification(1.0f, true,
-                                                                                                   "slot %u set", slot);
+                                                                                                   "slot %u set", slot + 1);
     this->currentSlot = slot;
 }
 
 unsigned int SaveStateMgr::GetCurrentSlot(void) {
     return this->currentSlot;
+}
+
+const SaveStateSlotInfo* SaveStateMgr::GetInfo(unsigned int slot) const {
+    auto found = this->slotInfo.find(slot);
+    return found == this->slotInfo.end() ? nullptr : &found->second;
 }
 
 void SaveStateMgr::ProcessSaveStateRequests(void) {
@@ -376,14 +382,15 @@ void SaveStateMgr::ProcessSaveStateRequests(void) {
                         std::make_shared<SaveState>(OTRGlobals::Instance->gSaveStateMgr, request.slot);
                 }
                 this->states[request.slot]->Save();
+                this->slotInfo[request.slot] = { gPlayState->sceneNum, static_cast<int64_t>(std::time(nullptr)) };
                 Ship::Context::GetRawInstance()->GetWindow()->GetGui()->GetGameOverlay()->TextDrawNotification(
-                    1.0f, true, "saved state %u", request.slot);
+                    1.0f, true, "saved state %u", request.slot + 1);
                 break;
             case RequestType::LOAD:
                 if (this->states.contains(request.slot)) {
                     this->states[request.slot]->Load();
                     Ship::Context::GetRawInstance()->GetWindow()->GetGui()->GetGameOverlay()->TextDrawNotification(
-                        1.0f, true, "loaded state %u", request.slot);
+                        1.0f, true, "loaded state %u", request.slot + 1);
                 } else {
                     SPDLOG_ERROR("Invalid SaveState slot: {}", request.slot);
                 }
@@ -415,7 +422,7 @@ SaveStateReturn SaveStateMgr::AddRequest(const SaveStateRequest request) {
             } else {
                 SPDLOG_ERROR("Invalid SaveState slot: {}", request.slot);
                 Ship::Context::GetRawInstance()->GetWindow()->GetGui()->GetGameOverlay()->TextDrawNotification(
-                    1.0f, true, "state slot %u empty", request.slot);
+                    1.0f, true, "state slot %u empty", request.slot + 1);
                 return SaveStateReturn::FAIL_INVALID_SLOT;
             }
             [[unlikely]] default

@@ -7,6 +7,10 @@
 #include <soh/Enhancements/game-interactor/GameInteractor.h>
 #include <soh/OTRGlobals.h>
 #include "soh/Enhancements/savestates.h"
+#include "soh/util.h"
+#include "SohGui.hpp"
+#include "UIWidgets.hpp"
+#include <ctime>
 #include <soh/Enhancements/cosmetics/authenticGfxPatches.h>
 #include <soh/Enhancements/TimeDisplay/TimeDisplay.h>
 #include "soh/Enhancements/Restorations/GetItemManipulation.h"
@@ -2098,20 +2102,43 @@ void SohMenu::AddMenuEnhancements() {
         .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatePromise"), 0) == 0; })
         .CVar(CVAR_CHEAT("SaveStatesEnabled"))
         .Options(CheckboxOptions().Tooltip("F5 to save, F6 to change slots, F7 to load"));
-    AddWidget(path, "Save State Slot: %d", WIDGET_CVAR_SLIDER_INT)
+    // Delta-style slot list: each slot shows where and when it was saved, and the menu closes after
+    // a save or load so the result is on screen. The touch Save/Load buttons use the last slot picked.
+    AddWidget(path, "Save State Slots", WIDGET_CUSTOM)
         .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0; })
-        .CVar(CVAR_CHEAT("SaveStateSlot"))
-        .Callback([](WidgetInfo& info) {
-            OTRGlobals::Instance->gSaveStateMgr->SetCurrentSlot(
-                std::clamp(CVarGetInteger(CVAR_CHEAT("SaveStateSlot"), 0), 0, 5));
-        })
-        .Options(IntSliderOptions().Min(0).Max(5).DefaultValue(0).Tooltip("The slot Save State and Load State use."));
-    AddWidget(path, "Save State", WIDGET_BUTTON)
-        .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0; })
-        .Callback([](WidgetInfo& info) { RequestSaveState(RequestType::SAVE); });
-    AddWidget(path, "Load State", WIDGET_BUTTON)
-        .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0; })
-        .Callback([](WidgetInfo& info) { RequestSaveState(RequestType::LOAD); });
+        .CustomFunction([this](WidgetInfo& info) {
+            const auto& mgr = OTRGlobals::Instance->gSaveStateMgr;
+            const int current = std::clamp(CVarGetInteger(CVAR_CHEAT("SaveStateSlot"), 0), 0, 5);
+            const float spacing = ImGui::GetStyle().ItemSpacing.x;
+            for (int slot = 0; slot < 6; slot++) {
+                const SaveStateSlotInfo* saved = mgr->GetInfo(slot);
+                ImGui::PushID(slot);
+                if (saved) {
+                    char when[32];
+                    const std::time_t savedAt = static_cast<std::time_t>(saved->savedAt);
+                    std::strftime(when, sizeof(when), "%I:%M %p", std::localtime(&savedAt));
+                    ImGui::TextColored(slot == current ? ImVec4(1.0f, 0.85f, 0.4f, 1.0f) : ImVec4(1, 1, 1, 1),
+                                       "Slot %d  %s  %s", slot + 1, SohUtils::GetSceneName(saved->scene).c_str(),
+                                       when[0] == '0' ? when + 1 : when);
+                } else {
+                    ImGui::TextDisabled("Slot %d  Empty", slot + 1);
+                }
+                const ImVec2 half((ImGui::GetContentRegionAvail().x - spacing) / 2, 0);
+                if (UIWidgets::Button("Save", UIWidgets::ButtonOptions().Size(half).Color(THEME_COLOR))) {
+                    CVarSetInteger(CVAR_CHEAT("SaveStateSlot"), slot);
+                    if (RequestSaveState(RequestType::SAVE) == SaveStateReturn::SUCCESS) ToggleVisibility();
+                }
+                ImGui::SameLine();
+                UIWidgets::ButtonOptions load = UIWidgets::ButtonOptions().Size(half);
+                load.disabled = saved == nullptr;
+                if (UIWidgets::Button("Load", load)) {
+                    CVarSetInteger(CVAR_CHEAT("SaveStateSlot"), slot);
+                    if (RequestSaveState(RequestType::LOAD) == SaveStateReturn::SUCCESS) ToggleVisibility();
+                }
+                ImGui::PopID();
+                ImGui::Spacing();
+            }
+        });
 #if defined(__IOS__) && !defined(__TVOS__)
     AddWidget(path, "Save and Load on Touch Controls", WIDGET_CVAR_CHECKBOX)
         .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0; })
