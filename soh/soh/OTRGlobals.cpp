@@ -1889,6 +1889,7 @@ extern "C" void Graph_StartFrame() {
                 slot = 0;
             }
             OTRGlobals::Instance->gSaveStateMgr->SetCurrentSlot(slot);
+            CVarSetInteger(CVAR_CHEAT("SaveStateSlot"), slot);
             SPDLOG_INFO("Set SaveState slot to {}.", slot);
             break;
         }

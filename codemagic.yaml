@@ -11,7 +11,7 @@ workflows:
       vars:
         SOH_IOS_VERSION: 9.3.1
         # Higher than the published build (20) so it installs over it and keeps saves.
-        SOH_IOS_BUILD_NUMBER: "21"
+        SOH_IOS_BUILD_NUMBER: "22"
         SOH_IOS_DISPLAY_NAME: Ship of Harkinian
         SOH_ENABLE_ICLOUD: "OFF"
         DEPLOYMENT_TARGET: "15.0"
@@ -30,6 +30,15 @@ workflows:
       # iPhone link pick up the Mac zlib/bzip2 (build #2 failed at the final link).
       - name: Build tools
         script: brew install cmake ninja pkg-config
+      # This image ships Homebrew libraries the GitHub runner lacks. CMake's find_package takes the Mac
+      # libzip/SDL2/etc. before fetching iPhone copies, and the link then fails on the Mac zlib/bzip2
+      # (builds #2 and #3). Remove them so ios.cmake builds its own.
+      - name: Remove Mac-only Homebrew libraries
+        script: |
+          for f in libzip libpng sdl2 spdlog fmt tinyxml2 nlohmann-json glew zlib bzip2 libogg libvorbis opus opusfile; do
+            if brew list --versions "$f" >/dev/null 2>&1; then brew uninstall --ignore-dependencies --force "$f"; fi
+          done
+          ls "$(brew --prefix)/lib/cmake" 2>/dev/null || true
       # The ROM-free support archive is taken from the published 9.3.1 IPA (same source tree),
       # so no host libraries are needed on this machine.
       - name: Get ROM-free support archive (soh.o2r)
@@ -38,8 +47,12 @@ workflows:
           unzip -p /tmp/soh-release.ipa 'Payload/Ship of Harkinian.app/soh.o2r' > soh/soh.o2r
           ls -la soh/soh.o2r
       - name: Build iPhone app
-        script: scripts/build-ios.sh --device
+        script: |
+          scripts/build-ios.sh --device || {
+            grep -iE "^(libzip|ZLIB|BZIP2|SDL2|PNG)[A-Z_]*(DIR|LIBRARY[A-Z_]*):" build-ios-device/CMakeCache.txt || true
+            exit 1
+          }
       - name: Package unsigned IPA
-        script: scripts/package-ios-unsigned.sh 'build-ios-device/soh/Release-iphoneos/Ship of Harkinian.app' 'dist/Ship-of-Harkinian-9.3.1-iOS-touch-menus-unsigned.ipa'
+        script: scripts/package-ios-unsigned.sh 'build-ios-device/soh/Release-iphoneos/Ship of Harkinian.app' 'dist/Ship-of-Harkinian-9.3.1-iOS-touch-menus-savestates-unsigned.ipa'
     artifacts:
       - dist/*.ipa

@@ -864,6 +864,15 @@ void SohMenu::AddMenuSettings() {
             SetMobileTouchControlsDisabled(CVarGetInteger(CVAR_SETTING("TouchControls.Disabled"), 0) != 0);
         })
         .Options(CheckboxOptions().Tooltip("Hides the touch controls and eye button."));
+#if defined(__IOS__) && !defined(__TVOS__)
+    AddWidget(path, "Save State Buttons", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_SETTING("TouchControls.SaveStateButtons"))
+        .RaceDisable(false)
+        .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_SETTING("TouchControls.Style"), 0) == 0; })
+        .Options(CheckboxOptions().Tooltip(
+            "Adds Save and Load buttons along the top of the integrated touch controls. "
+            "Save states must also be enabled in the Cheats menu."));
+#endif
     AddWidget(path, "Extra Item Slots", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("DpadEquips"))
         .Options(CheckboxOptions().Tooltip(

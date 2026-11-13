@@ -56,3 +56,6 @@ class SaveStateMgr {
     void ProcessSaveStateRequests(void);
 };
 extern std::shared_ptr<SaveStateMgr> gSaveStateMgr;
+
+// Saves or loads the slot chosen in the Cheats menu. Shared by the menu buttons and the touch controls.
+SaveStateReturn RequestSaveState(RequestType type);

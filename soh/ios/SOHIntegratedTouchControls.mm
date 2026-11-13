@@ -107,7 +107,7 @@ UIFont* TouchFont(CGFloat size) {
 - (void)tick:(CADisplayLink*)link {
     if(_suspended||self.hidden||!self.window) return;
     int next=TouchHud_GetState();
-    if(((next^_state)&127)!=0) {
+    if(((next^_state)&255)!=0) {
         [self cancelInputs];
         _state=next;TouchHud_GetBindings(_config.style,_bindings.data(),_bindings.size());[self rebuild];
     } else _state=next;
@@ -302,6 +302,10 @@ UIFont* TouchFont(CGFloat size) {
         if(!chosen)continue;
         if(chosen->key=="eye"){[self cancelInputs];_shown=!_shown;[self rebuild];continue;}
         if(chosen->key=="settings"){[self cancelInputs];SOHiOS_RequestMenuToggle();continue;}
+        if(chosen->key=="savestate"||chosen->key=="loadstate") {
+            TouchHud_SaveState(chosen->key=="loadstate");
+            _fingers[(uintptr_t)(__bridge void*)touch]=chosen->key;continue;
+        }
         _fingers[(uintptr_t)(__bridge void*)touch]=chosen->key;
         if(chosen->stick>=0) {
             if([self floating:*chosen]){chosen->cx=p.x;chosen->cy=p.y;}

@@ -123,6 +123,9 @@ struct Layout {
                 add("map","Map",mapX,mapY,36,28);
                 if(style==2||style==3) add(style==3?"cu":"fairy","Fairy",fairyX,fairyY,36,28);
             }
+            if(state&128) {
+                add("savestate","Save",.43f,(top+14*unit)/h,64,28);add("loadstate","Load",.57f,(top+14*unit)/h,64,28);
+            }
             add("move","Move",style==3?(left+75*unit)/w:.15f,style==3?(h-bottom-75*unit)/h:.80f,style==3?150:132,style==3?150:132,gray,0);
             if(style!=1||editing||(state&16)) add("look","Look",style==3?.62f:.59f,style==3?.62f:.69f,style==3?150:120,style==3?150:120,gray,1);
         }

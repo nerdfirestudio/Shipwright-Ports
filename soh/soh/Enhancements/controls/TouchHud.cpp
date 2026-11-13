@@ -5,6 +5,7 @@
 #include "soh/ShipInit.hpp"
 #include "soh/OTRGlobals.h"
 #include "soh/Enhancements/game-interactor/GameInteractor.h"
+#include "soh/Enhancements/savestates.h"
 #include <ship/Context.h>
 #include <libultraship/bridge/consolevariablebridge.h>
 #include <ship/window/Window.h>
@@ -23,12 +24,13 @@ extern PlayState* gPlayState;
 namespace {
 std::atomic<bool> active{false};
 std::atomic<bool> naviUtilityIcon{false};
-std::atomic<int> state{0}; // low bits: menu/play/Navi-on-L/jump/free-look; bits 8..17: drawn content
+std::atomic<int> state{0}; // low bits: menu/play/Navi-on-L/jump/free-look/save states; bits 8..17: drawn content
 std::atomic<uint32_t> drawnContent{0};
 std::atomic<uint32_t> held{0}, pending{0};
 std::atomic<bool> pendingMap{false}, mapPressed{false};
 std::atomic<bool> pendingNavi{false}, naviPressed{false};
 std::atomic<int> stickX{0}, stickY{0};
+std::atomic<int> pendingSaveState{-1};
 std::mutex layoutMutex;
 std::array<TouchHud::Anchor, 10> anchors;
 void Reset() { held = pending = 0; pendingMap = mapPressed = pendingNavi = naviPressed = false; stickX = stickY = 0; }
@@ -48,11 +50,16 @@ void Init() {
                    (ManualJumpActive() ? 8 : 0) |
                    (CVarGetInteger(CVAR_SETTING("FreeLook.Enabled"), 0) ? 16 : 0) |
                    (CVarGetInteger(CVAR_CHEAT("MoonJumpOnL"), 0) ? 32 : 0) |
-                   (gPlayState && gPlayState->pauseCtx.state != 0 ? 64 : 0);
+                   (gPlayState && gPlayState->pauseCtx.state != 0 ? 64 : 0) |
+                   (CVarGetInteger(CVAR_SETTING("TouchControls.SaveStateButtons"), 0) &&
+                    CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) ? 128 : 0);
         const auto content = drawnContent.exchange(0);
         if (!menu && active && gPlayState != nullptr) next |= content << 8;
         state = next;
         if (menu) Reset();
+        // Touches arrive on the UI thread; the request and its notification belong to the game thread.
+        const int saveState = pendingSaveState.exchange(-1);
+        if (saveState >= 0) RequestSaveState(saveState ? RequestType::LOAD : RequestType::SAVE);
     });
 }
 RegisterShipInitFunc init(Init);
@@ -123,6 +130,7 @@ extern "C" JNIEXPORT void JNICALL Java_com_dishii_soh_MainActivity_integratedTou
 }
 #endif
 extern "C" int TouchHud_NaviUtilityIcon() { return TouchHud_IsActive() && naviUtilityIcon; }
+extern "C" void TouchHud_SaveState(int load) { pendingSaveState = load ? 1 : 0; }
 extern "C" int TouchHud_IsActive() { return active && !(state.load() & 1); }
 extern "C" void TouchHud_MarkContent(int slot) {
     if (TouchHud_IsActive() && slot >= 0 && slot < 10) drawnContent.fetch_or(1u << slot);
@@ -159,6 +167,7 @@ extern "C" void TouchHud_SetButton(uint32_t, int) { }
 extern "C" void TouchHud_SetStick(int, int) { }
 extern "C" void TouchHud_Reset() { }
 extern "C" void TouchHud_SetLayout(const float*, int, int, int) { }
+extern "C" void TouchHud_SaveState(int) { }
 extern "C" int TouchHud_IsActive() { return 0; }
 extern "C" void TouchHud_MarkContent(int) { }
 extern "C" int TouchHud_MapPressed() { return 0; }

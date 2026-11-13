@@ -9,6 +9,8 @@
 #include <soh/OTRGlobals.h>
 #include <soh/OTRAudio.h>
 #include "savestate_serialize.h"
+#include <libultraship/bridge/consolevariablebridge.h>
+#include "soh/cvar_prefixes.h"
 
 extern "C" {
 #include "z64.h"
@@ -478,4 +480,17 @@ void SaveState::Load(void) {
     D_801755D0 = info->D_801755D0_copy;
     LoadOverlayStaticData();
     LoadTransitionActors();
+}
+SaveStateReturn RequestSaveState(RequestType type) {
+    auto gui = Ship::Context::GetRawInstance()->GetWindow()->GetGui();
+    if (CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0) {
+        gui->GetGameOverlay()->TextDrawNotification(6.0f, true, "Save states not enabled. Check Cheats Menu.");
+        return SaveStateReturn::FAIL_BAD_REQUEST;
+    }
+    auto& mgr = OTRGlobals::Instance->gSaveStateMgr;
+    const unsigned int slot = std::clamp(CVarGetInteger(CVAR_CHEAT("SaveStateSlot"), 0), 0, 5);
+    if (mgr->GetCurrentSlot() != slot) {
+        mgr->SetCurrentSlot(slot);
+    }
+    return mgr->AddRequest({ slot, type });
 }

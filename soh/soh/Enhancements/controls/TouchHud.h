@@ -19,6 +19,8 @@ void TouchHud_SetButton(uint32_t mask, int down);
 void TouchHud_SetStick(int x, int y);
 void TouchHud_Reset(void);
 void TouchHud_SetLayout(const float* values, int count, int visible, int useNaviIcon);
+// 0 saves and 1 loads the current save state slot on the next game frame.
+void TouchHud_SaveState(int load);
 #ifdef __cplusplus
 }
 #endif

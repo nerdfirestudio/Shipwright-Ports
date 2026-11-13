@@ -6,6 +6,7 @@
 #include "soh/Enhancements/FileSelectEnhancements.h"
 #include <soh/Enhancements/game-interactor/GameInteractor.h>
 #include <soh/OTRGlobals.h>
+#include "soh/Enhancements/savestates.h"
 #include <soh/Enhancements/cosmetics/authenticGfxPatches.h>
 #include <soh/Enhancements/TimeDisplay/TimeDisplay.h>
 #include "soh/Enhancements/Restorations/GetItemManipulation.h"
@@ -2097,6 +2098,26 @@ void SohMenu::AddMenuEnhancements() {
         .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatePromise"), 0) == 0; })
         .CVar(CVAR_CHEAT("SaveStatesEnabled"))
         .Options(CheckboxOptions().Tooltip("F5 to save, F6 to change slots, F7 to load"));
+    AddWidget(path, "Save State Slot: %d", WIDGET_CVAR_SLIDER_INT)
+        .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0; })
+        .CVar(CVAR_CHEAT("SaveStateSlot"))
+        .Callback([](WidgetInfo& info) {
+            OTRGlobals::Instance->gSaveStateMgr->SetCurrentSlot(
+                std::clamp(CVarGetInteger(CVAR_CHEAT("SaveStateSlot"), 0), 0, 5));
+        })
+        .Options(IntSliderOptions().Min(0).Max(5).DefaultValue(0).Tooltip("The slot Save State and Load State use."));
+    AddWidget(path, "Save State", WIDGET_BUTTON)
+        .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0; })
+        .Callback([](WidgetInfo& info) { RequestSaveState(RequestType::SAVE); });
+    AddWidget(path, "Load State", WIDGET_BUTTON)
+        .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0; })
+        .Callback([](WidgetInfo& info) { RequestSaveState(RequestType::LOAD); });
+#if defined(__IOS__) && !defined(__TVOS__)
+    AddWidget(path, "Save and Load on Touch Controls", WIDGET_CVAR_CHECKBOX)
+        .PreFunc([](WidgetInfo& info) { info.isHidden = CVarGetInteger(CVAR_CHEAT("SaveStatesEnabled"), 0) == 0; })
+        .CVar(CVAR_SETTING("TouchControls.SaveStateButtons"))
+        .Options(CheckboxOptions().Tooltip("Adds Save and Load buttons along the top of the integrated touch controls."));
+#endif
 
     AddWidget(path, "Beta Quest", WIDGET_SEPARATOR_TEXT);
     AddWidget(path, "Enable Beta Quest", WIDGET_CVAR_CHECKBOX)
