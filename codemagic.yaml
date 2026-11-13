@@ -48,6 +48,10 @@ workflows:
           ls -la soh/soh.o2r
       - name: Build iPhone app
         script: |
+          # CMake 4 takes the SDK from SDKROOT when nothing sets CMAKE_OSX_SYSROOT. Unset here, it
+          # found bzip2/zlib in the Mac SDK and the iPhone link failed (builds #2-#4).
+          export SDKROOT="$(xcrun --sdk iphoneos --show-sdk-path)"
+          echo "SDKROOT=$SDKROOT"
           scripts/build-ios.sh --device || {
             grep -iE "^(libzip|ZLIB|BZIP2|SDL2|PNG)[A-Z_]*(DIR|LIBRARY[A-Z_]*):" build-ios-device/CMakeCache.txt || true
             exit 1
