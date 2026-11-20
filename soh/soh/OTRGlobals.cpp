@@ -2352,6 +2352,22 @@ Color_RGB8 GetColorForControllerLED() {
     return color;
 }
 
+#if defined(__IOS__) && !defined(__TVOS__)
+#include "ios/SOHiOSHaptics.h"
+// iPhone vibration stands in for the Rumble Pak when it is switched on and no gamepad is connected
+// (Settings > Touch Controls > Phone Vibration). A connected gamepad keeps its own rumble, as before.
+static bool PhoneRumbleActive() {
+    if (!CVarGetInteger(CVAR_SETTING("TouchControls.PhoneRumble"), 1)) {
+        return false;
+    }
+    return Ship::Context::GetRawInstance()
+        ->GetControlDeck()
+        ->GetConnectedPhysicalDeviceManager()
+        ->GetConnectedSDLGamepadsForPort(0)
+        .empty();
+}
+#endif
+
 extern "C" void OTRControllerCallback(uint8_t rumble) {
     // We call this every tick, SDL accounts for this use and prevents driver spam
     // https://github.com/libsdl-org/SDL/blob/f17058b562c8a1090c0c996b42982721ace90903/src/joystick/SDL_joystick.c#L1114-L1144
@@ -2372,6 +2388,18 @@ extern "C" void OTRControllerCallback(uint8_t rumble) {
     } else {
         Ship::Context::GetRawInstance()->GetControlDeck()->GetControllerByPort(0)->GetRumble()->StopRumble();
     }
+#if defined(__IOS__) && !defined(__TVOS__)
+    if (PhoneRumbleActive()) {
+        SOHiOS_UpdatePhoneRumble(rumble, CVarGetInteger(CVAR_SETTING("TouchControls.PhoneRumbleStrength"), 70) / 100.0f);
+    } else {
+        static bool wasPhone = false;
+        if (wasPhone) {
+            SOHiOS_StopPhoneRumble();
+        }
+        wasPhone = false;
+        return;
+    }
+#endif
 }
 
 extern "C" float OTRGetAspectRatio() {
@@ -2442,6 +2470,12 @@ extern "C" void AudioPlayer_Play(const uint8_t* buf, uint32_t len) {
 }
 
 extern "C" int Controller_ShouldRumble(size_t slot) {
+#if defined(__IOS__) && !defined(__TVOS__)
+    // with no gamepad, the phone itself is player 1's Rumble Pak (the game never rumbles without one)
+    if (slot == 0 && PhoneRumbleActive()) {
+        return 1;
+    }
+#endif
     // don't rumble if we don't have rumble mappings
     if (Ship::Context::GetRawInstance()
             ->GetControlDeck()

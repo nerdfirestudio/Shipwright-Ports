@@ -151,6 +151,7 @@ if(CMAKE_SYSTEM_NAME MATCHES "iOS|tvOS")
         list(APPEND soh__ ${CMAKE_CURRENT_SOURCE_DIR}/ios/SOHUserFolderSync.mm)
         list(APPEND soh__ ${CMAKE_CURRENT_SOURCE_DIR}/ios/SOHiOSTouchControls.mm)
         list(APPEND soh__ ${CMAKE_CURRENT_SOURCE_DIR}/ios/SOHIntegratedTouchControls.mm)
+        list(APPEND soh__ ${CMAKE_CURRENT_SOURCE_DIR}/ios/SOHiOSHaptics.mm)
     endif()
 endif()
 
@@ -349,6 +350,7 @@ elseif(CMAKE_SYSTEM_NAME MATCHES "iOS|tvOS")
     target_link_libraries(${PROJECT_NAME} PRIVATE "-framework Network")
     if(NOT SOH_APPLE_TARGET STREQUAL "tvos")
         target_link_libraries(${PROJECT_NAME} PRIVATE "-framework UniformTypeIdentifiers")
+        target_link_libraries(${PROJECT_NAME} PRIVATE "-framework CoreHaptics")   # iPhone vibration for rumble
     endif()
 elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     set_target_properties(${PROJECT_NAME} PROPERTIES

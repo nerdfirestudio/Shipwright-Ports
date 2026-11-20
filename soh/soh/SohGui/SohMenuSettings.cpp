@@ -1,3 +1,6 @@
+#if defined(__IOS__) && !defined(__TVOS__)
+#include "ios/SOHiOSHaptics.h"
+#endif
 #include "SohMenu.h"
 #include "soh/Notification/Notification.h"
 #include "soh/Enhancements/enhancementTypes.h"
@@ -872,6 +875,23 @@ void SohMenu::AddMenuSettings() {
         .Options(CheckboxOptions().Tooltip(
             "Adds Save and Load buttons along the top of the integrated touch controls. "
             "Save states must also be enabled in the Cheats menu."));
+    AddWidget(path, "Phone Vibration (Rumble)", WIDGET_CVAR_CHECKBOX)
+        .CVar(CVAR_SETTING("TouchControls.PhoneRumble"))
+        .RaceDisable(false)
+        .Options(CheckboxOptions().DefaultValue(true).Tooltip(
+            "Your iPhone vibrates wherever the game would rumble: the Stone of Agony near hidden grottos and secrets, "
+            "hits, the fishing rod and more. Used when no gamepad is connected; a gamepad keeps its own rumble."));
+    AddWidget(path, "Vibration Strength: %d %%", WIDGET_CVAR_SLIDER_INT)
+        .CVar(CVAR_SETTING("TouchControls.PhoneRumbleStrength"))
+        .RaceDisable(false)
+        .PreFunc([](WidgetInfo& info) { info.isHidden = !CVarGetInteger(CVAR_SETTING("TouchControls.PhoneRumble"), 1); })
+        .Options(IntSliderOptions().Min(10).Max(100).DefaultValue(70));
+    AddWidget(path, "Test Vibration", WIDGET_BUTTON)
+        .RaceDisable(false)
+        .PreFunc([](WidgetInfo& info) { info.isHidden = !CVarGetInteger(CVAR_SETTING("TouchControls.PhoneRumble"), 1); })
+        .Callback([](WidgetInfo&) {
+            SOHiOS_TestPhoneRumble(CVarGetInteger(CVAR_SETTING("TouchControls.PhoneRumbleStrength"), 70) / 100.0f);
+        });
 #endif
     AddWidget(path, "Extra Item Slots", WIDGET_CVAR_CHECKBOX)
         .CVar(CVAR_ENHANCEMENT("DpadEquips"))
