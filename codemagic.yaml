@@ -11,7 +11,7 @@ workflows:
       vars:
         SOH_IOS_VERSION: 9.3.1
         # Higher than the published build (20) so it installs over it and keeps saves.
-        SOH_IOS_BUILD_NUMBER: "22"
+        SOH_IOS_BUILD_NUMBER: "23"
         SOH_IOS_DISPLAY_NAME: Ship of Harkinian
         SOH_ENABLE_ICLOUD: "OFF"
         DEPLOYMENT_TARGET: "15.0"
