@@ -42,7 +42,7 @@ bool EnsureEngine() {
         gEngine = [[CHHapticEngine alloc] initAndReturnError:&err];
         if (gEngine == nil) return false;
         gEngine.playsHapticsOnly = YES;
-        gEngine.isAutoShutdownEnabled = YES;   // powers down between rumbles, restarts on the next one
+        gEngine.autoShutdownEnabled = YES;    // powers down between rumbles, restarts on the next one
         gEngine.stoppedHandler = ^(CHHapticEngineStoppedReason) {
             dispatch_async(Queue(), ^{ gEngineRunning = false; gPlayer = nil; gPlaying = false; });
         };
